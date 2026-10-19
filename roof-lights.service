@@ -1,0 +1,23 @@
+# Installed by install.sh, which fills in @DIR@ and @USER@.
+[Unit]
+Description=Roof satellite-pass lights
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+User=@USER@
+SupplementaryGroups=i2c
+WorkingDirectory=@DIR@
+Environment=PYTHONUNBUFFERED=1
+ExecStart=@DIR@/venv/bin/python -m roof_lights.main
+# Runs after every stop, including crashes and kills: lights yellow = "unknown".
+ExecStopPost=@DIR@/venv/bin/python -m roof_lights.lights yellow --reason "Service stopped"
+Restart=always
+RestartSec=10
+# The main loop pings systemd at least every minute; if it hangs for 3 minutes it is restarted.
+WatchdogSec=180
+
+[Install]
+WantedBy=multi-user.target

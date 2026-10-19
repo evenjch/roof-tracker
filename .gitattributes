@@ -1,0 +1,2 @@
+# Edited on Windows, run on the Pi: keep Unix line endings for everything that bash/systemd reads.
+* text=auto eol=lf
