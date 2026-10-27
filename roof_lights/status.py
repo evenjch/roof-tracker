@@ -152,6 +152,16 @@ def _ago(dt, now):
     return "{} ({} ago)".format(_local(dt, "%H:%M:%S"), text)
 
 
+def _last_error(t, widget):
+    """The tracker's last error. The widget shows only the time, with the message on hover."""
+    if not t["last_error"]:
+        return ""
+    at = _local(t["last_error_at"], "%H:%M:%S")
+    if widget:
+        return '<span class="hover" title="{}">{}</span>'.format(html.escape(t["last_error"]), html.escape(at))
+    return html.escape("{}: {}".format(at, t["last_error"]))
+
+
 def render_html(s, widget=False):
     """The status page. widget=True drops the heading, card frames and footer links and lets
     the tables wrap instead of scrolling sideways, for a narrow browser panel."""
@@ -174,7 +184,7 @@ def render_html(s, widget=False):
             "" if t["fresh"] else "warn",
             e(_ago(t["last_ok"], now)),
             t["passes"],
-            e("{}: {}".format(_local(t["last_error_at"], "%H:%M:%S"), t["last_error"])) if t["last_error"] else "",
+            _last_error(t, widget),
         )
         for t in s["trackers"]
     )
@@ -258,6 +268,7 @@ body.widget {{ padding: 10px 8px; font-size: 13px; overflow-x: hidden; }}
 .widget .reason {{ font-size: 15px; }}
 .widget .notifications, .widget .meta {{ font-size: 12px; }}
 .widget .meta {{ margin-top: 14px; }}
+.widget .hover {{ cursor: help; text-decoration: underline dotted; }}
 </style>
 </head>
 <body class="{body_class}">
