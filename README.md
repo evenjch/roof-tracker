@@ -13,6 +13,8 @@ crashes or hangs, and doesn't depend on anyone's computer being on.
 
 - Status page: `http://<pi>:8080`. It shows the current light and why, each tracker's last
   successful read and last error, and the upcoming red windows.
+- `http://<pi>:8080/?widget` is the same page stripped down for a small browser panel
+  (e.g. a Vivaldi web panel): no heading, frames or sideways scrolling.
 - `http://<pi>:8080/health` returns `ok` (HTTP 200), or the problems (HTTP 503).
 - `http://<pi>:8080/status.json` returns the same data as JSON.
 - Over SSH: `systemctl status roof-lights`, `journalctl -u roof-lights -f`.

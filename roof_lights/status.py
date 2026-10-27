@@ -1,6 +1,7 @@
 """What the service is doing, shared between the main loop and a small HTTP status page.
 
     /             human-readable status page (refreshes every 30 s)
+    /?widget      the same, stripped down for a small browser panel (e.g. Vivaldi)
     /status.json  the same data as JSON
     /health       200 "ok" when healthy, 503 with the problems otherwise
 """
@@ -10,6 +11,7 @@ import logging
 import threading
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs
 
 from . import config
 from .timeline import utcnow
@@ -93,10 +95,11 @@ def to_json(snapshot):
 
 class _Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        path = self.path.split("?", 1)[0]
+        path, _, query = self.path.partition("?")
         snapshot = self.server.status.snapshot(utcnow())
         if path == "/":
-            self._send(200, "text/html; charset=utf-8", render_html(snapshot))
+            widget = "widget" in parse_qs(query, keep_blank_values=True)
+            self._send(200, "text/html; charset=utf-8", render_html(snapshot, widget=widget))
         elif path == "/status.json":
             self._send(200, "application/json", to_json(snapshot))
         elif path == "/health":
@@ -149,7 +152,9 @@ def _ago(dt, now):
     return "{} ({} ago)".format(_local(dt, "%H:%M:%S"), text)
 
 
-def render_html(s):
+def render_html(s, widget=False):
+    """The status page. widget=True drops the heading, card frames and footer links and lets
+    the tables wrap instead of scrolling sideways, for a narrow browser panel."""
     e = html.escape
     now = s["now"]
 
@@ -186,15 +191,24 @@ def render_html(s):
         for w in s["upcoming"]
     ) or '<tr><td colspan="3">None known</td></tr>'
 
+    if widget:
+        meta = "Last check {} &middot; updated {}".format(
+            e(_ago(s["last_loop"], now)), e(_local(now, "%H:%M:%S")))
+    else:
+        meta = (
+            "Running since {} &middot; last check {} &middot; page generated {}"
+            ' &middot; <a href="/status.json">JSON</a> &middot; <a href="/health">health</a>'
+        ).format(e(_local(s["started_at"])), e(_ago(s["last_loop"], now)), e(_local(now)))
+
     return _PAGE.format(
+        body_class="widget" if widget else "",
+        heading="" if widget else "<h1>Roof lights</h1>",
+        meta=meta,
         lamps=lamps,
         reason=e(s["reason"]),
         health=health,
         tracker_rows=tracker_rows,
         upcoming_rows=upcoming_rows,
-        started=e(_local(s["started_at"])),
-        last_loop=e(_ago(s["last_loop"], now)),
-        now=e(_local(now)),
     )
 
 
@@ -232,11 +246,23 @@ table {{ width: 100%; border-collapse: collapse; }}
 th, td {{ text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }}
 th {{ color: var(--muted); font-weight: 600; font-size: 13px; }}
 .meta {{ color: var(--muted); font-size: 13px; margin-top: 24px; }}
+body.widget {{ padding: 10px 8px; font-size: 13px; overflow-x: hidden; }}
+.widget .card {{ background: none; border: 0; border-radius: 0; padding: 0; }}
+.widget .scroll {{ overflow-x: visible; }}
+.widget table {{ table-layout: fixed; }}
+.widget th, .widget td {{ padding: 4px 4px; overflow-wrap: anywhere; }}
+.widget th {{ font-size: 12px; }}
+.widget h2 {{ font-size: 14px; margin: 16px 0 4px; }}
+.widget .lamps {{ gap: 10px; margin-bottom: 8px; }}
+.widget .lamp {{ width: 28px; height: 28px; }}
+.widget .reason {{ font-size: 15px; }}
+.widget .notifications, .widget .meta {{ font-size: 12px; }}
+.widget .meta {{ margin-top: 14px; }}
 </style>
 </head>
-<body>
+<body class="{body_class}">
 <main>
-<h1>Roof lights</h1>
+{heading}
 <div class="card">
   <div class="lamps">{lamps}</div>
   <p class="reason">{reason}</p>
@@ -252,8 +278,7 @@ th {{ color: var(--muted); font-weight: 600; font-size: 13px; }}
   <tr><th>Red from</th><th>Until</th><th>Passes</th></tr>
   {upcoming_rows}
 </table></div>
-<p class="meta">Running since {started} &middot; last check {last_loop} &middot; page generated {now}
-&middot; <a href="/status.json">JSON</a> &middot; <a href="/health">health</a></p>
+<p class="meta">{meta}</p>
 </main>
 </body>
 </html>
